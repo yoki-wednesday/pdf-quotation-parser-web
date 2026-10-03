@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture Diagrams (pdf-quotation-parser-web)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 2rem;
+        }
+        .diagram-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+    </style>
+    <!-- Load Mermaid.js from CDN -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</head>
+<body>
+
+    <h1>pdf-quotation-parser-web Architecture</h1>
+
+    <h2>1. System Architecture / Component Diagram</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+        graph TD
+            subgraph "Client (Browser SPA - React 19 + Vite)"
+                DropZone["PDF DropZone / Upload"]
+                PreviewGrid["Preview & Edit Grid"]
+                CartState["Cart Drawer State (買い物かご)"]
+                SettingsModal["Settings Modal (自社・担当者設定)"]
+                
+                Parser["pdf.js Parser Engine (Local)"]
+                HashUtil["SubtleCrypto (SHA-256)"]
+                GenPDF["pdf-lib Generator Engine"]
+                SupaClient["@supabase/supabase-js Client"]
+            end
+            
+            subgraph "Supabase Cloud Platform (BaaS)"
+                Auth["Supabase Auth (auth.users)"]
+                
+                subgraph "PostgreSQL Database (RLS Enforced)"
+                    RLS["Row Level Security Gateway"]
+                    T_Settings["user_settings"]
+                    T_Suppliers["suppliers"]
+                    T_Estimates["estimates"]
+                    T_Items["estimate_items"]
+                    T_Logs["import_logs"]
+                    T_Master["product_master"]
+                end
+            end
+
+            DropZone -->|"PDF ArrayBuffer"| Parser
+            DropZone -->|"Calc Hash"| HashUtil
+            Parser -->|"Extracted Text Items"| PreviewGrid
+            PreviewGrid -->|"Confirm & Save"| SupaClient
+            CartState -->|"Generate PO/Req PDF"| GenPDF
+            SettingsModal -->|"Save Settings"| SupaClient
+
+            SupaClient <-->|"1. Sign-in & JWT Session"| Auth
+            SupaClient -->|"2. Authenticated REST Calls"| RLS
+            RLS --> T_Settings
+            RLS --> T_Suppliers
+            RLS --> T_Estimates
+            RLS --> T_Items
+            RLS --> T_Logs
+            RLS --> T_Master
+        </div>
+    </div>
+
+    <h2>2. Processing Flow / Sequence Diagram</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+        sequenceDiagram
+            actor User as "ユーザー"
+            participant GUI as "React UI (Web SPA)"
+            participant Parser as "pdf.js (ブラウザ内解析)"
+            participant Supabase as "Supabase (PostgreSQL + RLS)"
+
+            User->>GUI: "PDFファイルをドロップ / 選択"
+            GUI->>Parser: "ブラウザ内テキスト抽出・パース実行"
+            
+            alt "抽出成功 (正常系)"
+                Parser-->>GUI: "抽出データ (ヘッダー・明細)"
+                GUI->>User: "プレビュー・編集画面表示"
+            else "抽出失敗 / 非PDF (異常系)"
+                Parser-->>GUI: "パースエラー"
+                GUI-->>User: "エラーメッセージ表示"
+            end
+
+            User->>GUI: "内容確認後、保存"
+            GUI->>Supabase: "INSERT estimates / estimate_items / import_logs"
+            
+            alt "保存成功 (正常系)"
+                Supabase-->>GUI: "201 Created"
+                GUI-->>User: "保存完了通知"
+            else "保存失敗 (異常系)"
+                Supabase-->>GUI: "エラー (RLS拒否 / 制約違反)"
+                GUI-->>User: "エラーメッセージ表示"
+            end
+        </div>
+    </div>
+
+    <h2>3. State Transition Diagram (PDF Client Parsing & Saving)</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+        stateDiagram-v2
+            [*] --> 待機中
+            
+            待機中 --> PDF読み込み中 : "ファイルドロップ/選択"
+            PDF読み込み中 --> 重複チェック中 : "SubtleCrypto SHA-256計算"
+            
+            重複チェック中 --> 待機中 : "既登録（スキップ・警告）"
+            重複チェック中 --> PDF解析中 : "未登録（新規ファイル）"
+            
+            PDF解析中 --> 確認待ち : "ブラウザ内パース成功"
+            PDF解析中 --> エラー状態 : "解析失敗・フォーマット不一致"
+            
+            確認待ち --> データ保存中 : "ユーザー承認・保存"
+            確認待ち --> 破棄 : "ユーザーキャンセル"
+            
+            データ保存中 --> 完了 : "Supabase保存成功"
+            データ保存中 --> エラー状態 : "保存失敗・ネットワーク/RLSエラー"
+            
+            完了 --> 待機中 : "次ファイル処理"
+            エラー状態 --> 待機中 : "エラークリア・再試行"
+            破棄 --> 待機中 : "次ファイル処理"
+        </div>
+    </div>
+
+</body>
+</html>

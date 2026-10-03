@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supabase はじめかたガイド | PDF見積書パーサー Web SPA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0f1115;
+      --bg-surface: #181b21;
+      --bg-surface-elevated: #222630;
+      --border-subtle: #2d3340;
+      --border-focus: #3ecf8e;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #3ecf8e;
+      --accent-glow: rgba(62, 207, 142, 0.15);
+      --accent-hover: #34b27b;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      --danger-border: #ef4444;
+      --danger-text: #fca5a5;
+      --code-bg: #111318;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      line-height: 1.7;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 2rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.8rem;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      border-radius: 9999px;
+      color: var(--accent);
+      font-size: 0.825rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+      color: #fff;
+    }
+
+    p.lead {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .step-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #0d1117;
+      font-weight: 700;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 1.2rem 0 0.5rem;
+      color: #e5e7eb;
+    }
+
+    ol, ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 0.4rem;
+    }
+
+    li strong {
+      color: var(--text-main);
+    }
+
+    .code-block {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+    }
+
+    .code-block code {
+      display: block;
+      white-space: pre;
+    }
+
+    .inline-code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-surface-elevated);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.875em;
+      color: var(--accent);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .alert {
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      display: flex;
+      gap: 0.75rem;
+      font-size: 0.925rem;
+    }
+
+    .alert-warning {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .alert-info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+    }
+
+    .grid-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    .grid-table th, .grid-table td {
+      border: 1px solid var(--border-subtle);
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+    }
+
+    .grid-table th {
+      background: var(--bg-surface-elevated);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 0;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge">🚀 セットアップガイド</div>
+      <h1>Supabase はじめかた・接続手順</h1>
+      <p class="lead">PDF見積書パーサー（Web SPA版）とSupabase PostgreSQLデータベースを連携させるためのステップバイステップガイドです。</p>
+    </header>
+
+    <!-- STEP 1 -->
+    <div class="card">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <h2>Supabase アカウント作成と新規プロジェクト作成</h2>
+      </div>
+      <ol>
+        <li><a href="https://supabase.com/" target="_blank" style="color: var(--accent);">Supabase 公式サイト</a> にアクセスし、<strong>[Start your project]</strong> をクリックします。</li>
+        <li>GitHub アカウント等でサインアップ / ログインします。</li>
+        <li><strong>[New project]</strong> をクリックし、以下を設定します：
+          <ul>
+            <li><strong>Name</strong>: 例: <code>pdf-quotation-parser</code></li>
+            <li><strong>Database Password</strong>: 強固なパスワードを生成・保存（安全な場所に保管してください）</li>
+            <li><strong>Region</strong>: 日本国内運用の場合 <code>Northeast (Tokyo) [ap-northeast-1]</code> を推奨</li>
+            <li><strong>Pricing Plan</strong>: Free Tier（無料枠）で十分稼働可能です</li>
+          </ul>
+        </li>
+        <li><strong>[Create new project]</strong> を押下し、数分待つとプロジェクトのプロビジョニングが完了します。</li>
+      </ol>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="card">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <h2>API設定（URL & anon key）の取得</h2>
+      </div>
+      <p style="color: var(--text-muted); margin-bottom: 0.75rem;">WebフロントエンドからDBへアクセスするための接続情報を取得します。</p>
+      <ol>
+        <li>左メニュー下部の <strong>[Project Settings]</strong>（ギアアイコン ⚙️）をクリックします。</li>
+        <li>サイドバーの <strong>[API]</strong>（または <strong>Configuration &gt; API</strong>）を選択します。</li>
+        <li>以下の2つの値をコピーします：
+          <ul>
+            <li><strong>Project URL</strong>: <code>https://xxxxxxxxxxxxxxxxxxxx.supabase.co</code></li>
+            <li><strong>Project API keys &gt; `anon` `public`</strong>: クライアント向けパブリックキー</li>
+          </ul>
+        </li>
+      </ol>
+      <div class="alert alert-warning">
+        <div>⚠️ <strong>注意:</strong> <code>service_role</code> キーは絶対に使用・公開しないでください。ブラウザアプリに設定するのは必ず <code>anon (public)</code> キーです。</div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="card">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <h2>テーブル作成（SQL Editor の実行）</h2>
+      </div>
+      <p style="color: var(--text-muted);">抽出テキストおよび見積メタデータを保存するためのテーブルを作成します。</p>
+      <ol>
+        <li>左メニューの <strong>[SQL Editor]</strong> を選択します。</li>
+        <li><strong>[New query]</strong> をクリックし、以下の SQL スクリプトを貼り付けて <strong>[Run]</strong> をクリックします。</li>
+      </ol>
+
+      <div class="code-block">
+        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql-code').innerText); this.innerText='コピー完了!'; setTimeout(()=>this.innerText='コピー', 2000)">コピー</button>
+        <code id="sql-code">-- 1. パース結果保存用テーブル作成
+CREATE TABLE IF NOT EXISTS public.parsed_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    filename TEXT NOT NULL,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. テーブルコメント付与
+COMMENT ON TABLE public.parsed_documents IS 'PDFから抽出されたテキストおよびメタデータを保存するテーブル';
+
+-- 3. Row Level Security (RLS) 有効化
+ALTER TABLE public.parsed_documents ENABLE ROW LEVEL SECURITY;
+
+-- 4. 暫定アクセスポリシー（プロトタイプ検証用: anonキーでの全操作を許可）
+-- ※本番運用時はユーザー認証（Supabase Auth）と連携したポリシーに切り替えます
+CREATE POLICY "Allow anon insert and select"
+ON public.parsed_documents
+FOR ALL
+TO anon
+USING (true)
+WITH CHECK (true);</code>
+      </div>
+
+      <div class="alert alert-info">
+        <div>💡 <strong>解説:</strong> <code>ALTER TABLE ... ENABLE ROW LEVEL SECURITY</code> によりRLSが有効化され、安全なポリシー制御の土台が整います。</div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="card">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <h2>ローカル環境変数（.env.local）の更新</h2>
+      </div>
+      <p style="color: var(--text-muted);">プロジェクトのルートディレクトリにある <span class="inline-code">.env.local</span> を開き、STEP 2 で取得した値に書き換えます。</p>
+
+      <div class="code-block">
+        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('env-code').innerText); this.innerText='コピー完了!'; setTimeout(()=>this.innerText='コピー', 2000)">コピー</button>
+        <code id="env-code">VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">※ 編集後、開発サーバー（<code>npm run dev</code>）が起動中の場合は自動で再読み込みまたは再起動されます。</p>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="card">
+      <div class="step-header">
+        <div class="step-number">5</div>
+        <h2>Web画面からの動作確認</h2>
+      </div>
+      <ol>
+        <li>ブラウザで開発サーバーのURL（通常 <a href="http://localhost:5173" target="_blank" style="color: var(--accent);">http://localhost:5173</a>）を開きます。</li>
+        <li><strong>[ファイルを選択]</strong> からお手元のPDF見積書を選択します。</li>
+        <li><strong>[Extract Text]</strong> ボタンをクリックすると、ブラウザ上で <code>pdf.js</code> によるテキスト抽出が行われ、テキストエリアに抽出結果が表示されます。</li>
+        <li><strong>[Save to DB]</strong> ボタンをクリックします。</li>
+        <li>「<code>Successfully saved to Supabase DB!</code>」と表示されれば連携成功です！</li>
+        <li>Supabaseダッシュボードの <strong>[Table Editor] &gt; [parsed_documents]</strong> を確認すると、保存されたレコードが確認できます。</li>
+      </ol>
+    </div>
+
+    <!-- 重要ポリシーの確認 -->
+    <div class="card" style="border-color: rgba(62, 207, 142, 0.4);">
+      <h2 style="color: var(--accent); margin-bottom: 0.75rem;">🛡️ セキュリティ・クラウド非保存ポリシーの遵守について</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">
+        本Web SPAアーキテクチャでは、<strong>「PDFのバイナリファイルそのものはSupabase Storageや外部サーバーに一切送信・アップロードされません」</strong>。<br>
+        ブラウザ（端末メモリ内）の <code>pdf.js</code> で抽出されたテキストデータのみがPostgreSQLへ送信されるため、機密文書のローカル完結・クラウド非保存要件を満たした運用が可能です。
+      </p>
+    </div>
+
+    <footer>
+      PDF Quotation Parser Web SPA &bull; Supabase Setup Guide
+    </footer>
+  </div>
+
+</body>
+</html>
