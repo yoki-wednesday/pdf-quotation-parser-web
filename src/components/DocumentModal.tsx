@@ -7,11 +7,14 @@ import {
   type CompanyInfo,
 } from '../lib/pdfGenerator';
 import type { CartItem } from '../lib/cart';
+import { recordDocumentExportAudit } from '../lib/auditLogger';
 
 interface DocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
   items: CartItem[];
+  defaultDocType?: 'ESTIMATE_REQUEST' | 'PURCHASE_ORDER';
+  isManualEntry?: boolean;
 }
 
 interface SupplierOption {
@@ -20,9 +23,15 @@ interface SupplierOption {
   person_name?: string;
 }
 
-export function DocumentModal({ isOpen, onClose, items }: DocumentModalProps) {
-  const [docType, setDocType] = useState<'ESTIMATE_REQUEST' | 'PURCHASE_ORDER'>('ESTIMATE_REQUEST');
-  const [vendorName, setVendorName] = useState('岩瀬産業 株式会社');
+export function DocumentModal({
+  isOpen,
+  onClose,
+  items,
+  defaultDocType = 'ESTIMATE_REQUEST',
+  isManualEntry = false,
+}: DocumentModalProps) {
+  const [docType, setDocType] = useState<'ESTIMATE_REQUEST' | 'PURCHASE_ORDER'>(defaultDocType);
+  const [vendorName, setVendorName] = useState('');
   const [vendorPerson, setVendorPerson] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryPlace, setDeliveryPlace] = useState('');
@@ -69,11 +78,6 @@ export function DocumentModal({ isOpen, onClose, items }: DocumentModalProps) {
             person_name: s.person_last_name || [s.person_last_name, s.person_first_name].filter(Boolean).join(' '),
           }));
           setSuppliers(list);
-          if (list[0]) {
-            setSelectedSupplierId(list[0].id);
-            setVendorName(list[0].name);
-            setVendorPerson(list[0].person_name || '');
-          }
         }
       } catch (err) {
         console.warn('DocumentModal loadData error:', err);
@@ -82,6 +86,13 @@ export function DocumentModal({ isOpen, onClose, items }: DocumentModalProps) {
 
     loadData();
   }, [isOpen]);
+
+  // 開いたときにdocTypeを初期化
+  useEffect(() => {
+    if (isOpen) {
+      setDocType(defaultDocType);
+    }
+  }, [isOpen, defaultDocType]);
 
   if (!isOpen) return null;
 
@@ -123,40 +134,57 @@ export function DocumentModal({ isOpen, onClose, items }: DocumentModalProps) {
       const fileName = `${docType === 'PURCHASE_ORDER' ? '御発注書' : '御見積依頼書'}_${docNo}.pdf`;
       downloadPdfBlob(pdfBytes, fileName);
 
+      const totalAmount = docType === 'PURCHASE_ORDER'
+        ? items.reduce((acc, it) => acc + (it.amount || (it.quantity * it.unit_price) || 0), 0)
+        : 0;
+
+      // 監査メタデータログ記録 (REQ-13-002, Task-016)
+      recordDocumentExportAudit({
+        documentType: docType,
+        vendorName,
+        itemCount: items.length,
+        totalAmount,
+        sourceType: isManualEntry ? 'MANUAL_CART' : 'HISTORICAL_CART',
+        timestamp: new Date().toISOString(),
+      });
+
       // 調達案件・アウトバウンド帳票履歴 (procurement_projects) への保存
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const currentUserId = user?.id || null;
+      // ※ 手入力明細 (isManualEntry: true) の場合はDBへ保存せずメモリ完結とする (REQ-22-013)
+      if (!isManualEntry) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const currentUserId = user?.id || null;
 
-        const totalAmount = docType === 'PURCHASE_ORDER'
-          ? items.reduce((acc, it) => acc + (it.amount || (it.quantity * it.unit_price) || 0), 0)
-          : 0;
+          const projectName = `${vendorName} 向け ${docType === 'PURCHASE_ORDER' ? '発注' : '見積依頼'} (${docNo})`;
 
-        const projectName = `${vendorName} 向け ${docType === 'PURCHASE_ORDER' ? '発注' : '見積依頼'} (${docNo})`;
+          const notesParts = [
+            deliveryPlace ? `納入場所: ${deliveryPlace}` : '',
+            responseDeadline ? `回答期限: ${responseDeadline}` : '',
+            vendorPerson ? `担当者: ${vendorPerson}` : '',
+          ].filter(Boolean).join(' / ');
 
-        const notesParts = [
-          deliveryPlace ? `納入場所: ${deliveryPlace}` : '',
-          responseDeadline ? `回答期限: ${responseDeadline}` : '',
-          vendorPerson ? `担当者: ${vendorPerson}` : '',
-        ].filter(Boolean).join(' / ');
-
-        await supabase.from('procurement_projects').insert([
-          {
-            user_id: currentUserId,
-            project_name: projectName,
-            document_type: docType,
-            status: docType === 'PURCHASE_ORDER' ? 'ORDERED' : 'REQUESTED',
-            supplier_id: selectedSupplierId,
-            target_date: deliveryDate.trim() || null,
-            total_amount: totalAmount,
-            notes: notesParts || null,
-          },
-        ]);
-      } catch (saveHistoryErr) {
-        console.warn('Failed to record procurement project history:', saveHistoryErr);
+          await supabase.from('procurement_projects').insert([
+            {
+              user_id: currentUserId,
+              project_name: projectName,
+              document_type: docType,
+              status: docType === 'PURCHASE_ORDER' ? 'ORDERED' : 'REQUESTED',
+              supplier_id: selectedSupplierId,
+              target_date: deliveryDate.trim() || null,
+              total_amount: totalAmount,
+              notes: notesParts || null,
+            },
+          ]);
+        } catch (saveHistoryErr) {
+          console.warn('Failed to record procurement project history:', saveHistoryErr);
+        }
       }
 
-      setMessage(`PDFを出力しました（${fileName}）`);
+      setMessage(
+        isManualEntry
+          ? `PDFを出力しました（${fileName}）※手入力明細のためDB未保存・メモリ完結`
+          : `PDFを出力しました（${fileName}）`
+      );
     } catch (err: any) {
       console.error('PDF generation error:', err);
       setMessage(`PDF生成エラー: ${err.message}`);
@@ -330,7 +358,7 @@ export function DocumentModal({ isOpen, onClose, items }: DocumentModalProps) {
             <button
               data-ai-id="btn-generate-pdf-execute"
               onClick={handleGeneratePdf}
-              disabled={isGenerating || items.length === 0}
+              disabled={isGenerating || items.length === 0 || !vendorName.trim()}
               style={{
                 padding: '0.6rem 1.5rem',
                 backgroundColor: isGenerating ? '#999' : '#0070f3',

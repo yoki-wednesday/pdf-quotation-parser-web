@@ -90,3 +90,29 @@
 - 自動テスト・AI操作の確実な実行のため、すべてのインタラクティブ要素（ボタン、フォーム、リンク）には画面内で一意なKebab-caseの `data-ai-id` 属性を付与すること。
   - 例: `<button data-ai-id="btn-upload-pdf">アップロード</button>`
   - 例: `<input data-ai-id="input-search-keyword" />`
+
+## Loop 2 差分セクション
+
+### 1. 要件・機能ID一覧マトリクス (追加)
+
+| ID | 名称 | 概要 | 優先度 | status | isFuture |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| REQ-22-013 | 新規帳票作成 (カート拡張) | 履歴のない新規品目に対する手入力明細作成とPDF出力 | MUST | Completed | false |
+
+### 2. データ構造体 / スキーマ定義テーブル (追加・変更)
+
+DBスキーマの追加・変更はありません。
+※ 制約・決定ロジックに基づき、新規手入力データはDBへは保存せず、ブラウザメモリ上（フロントエンドの状態管理、React state / Zustand 等）のみで完結させます。データ構造としては以下の TypeScript 型（インメモリ）を想定します。
+
+```typescript
+// インメモリでのみ管理される新規明細データ型
+type NewCartItem = {
+  id: string; // フロントエンドで生成する一時的なUUIDまたはユニークキー
+  manufacturer: string;
+  productName: string;
+  quantity: number;
+  unit?: string; // 手入力可能な任意の単位（デフォルト: '個'）
+  unitPrice?: number; // 発注書の場合は必須、見積依頼書の場合は任意/不要
+  remarks?: string;
+};
+```

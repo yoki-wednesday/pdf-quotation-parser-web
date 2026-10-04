@@ -161,3 +161,35 @@ sequenceDiagram
     Supabase-->>UI: 保存完了
     UI-->>User: サクセス通知
 ```
+
+## Loop 2 差分セクション
+
+### 1. シーケンス図: 新規帳票作成フロー (カート内手入力)
+
+DB（Supabase）を経由せず、フロントエンドの状態管理から直接PDF生成エンジン（`pdf-lib`）へデータを渡すフローです。
+
+```mermaid
+sequenceDiagram
+    actor User as 担当者
+    participant UI as Browser (React App - Cart Drawer)
+    participant State as Frontend State (Zustand/Context)
+    participant GenPDF as pdf-lib Generator Engine
+
+    User->>UI: カートを開き「新規見積」または「新規発注」を選択
+    UI->>State: モード切り替え（手入力モード）
+    
+    loop 明細入力
+        User->>UI: メーカ、品名、数量、単価、備考を入力・編集
+        UI->>State: インメモリの明細リスト(NewCartItem[])を更新
+    end
+    
+    User->>UI: 「PDF出力」ボタン押下
+    UI->>State: 現在の入力明細状態を取得
+    State-->>UI: 手入力明細データ
+    
+    UI->>GenPDF: 帳票データとして引き渡し
+    GenPDF->>GenPDF: PDFテンプレートへ描画 (日本語フォント埋め込み)
+    GenPDF-->>UI: PDF Blob
+    
+    UI-->>User: PDFファイル ダウンロード
+```

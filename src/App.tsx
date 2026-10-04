@@ -47,11 +47,36 @@ function App() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isDocumentOpen, setIsDocumentOpen] = useState<boolean>(false);
+  const [documentModalItems, setDocumentModalItems] = useState<CartItem[]>([]);
+  const [documentModalType, setDocumentModalType] = useState<'ESTIMATE_REQUEST' | 'PURCHASE_ORDER'>('ESTIMATE_REQUEST');
+  const [isDocumentManualEntry, setIsDocumentManualEntry] = useState<boolean>(false);
 
   // 認証状態
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+
+  // Phase 4 UX 3-3 対策: 手入力下書き未保存時のリロード・離脱警告 (Task-012)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      try {
+        const raw = localStorage.getItem('pdf_quotation_new_cart_draft');
+        if (raw) {
+          const items = JSON.parse(raw);
+          if (Array.isArray(items) && items.length > 0) {
+            e.preventDefault();
+            e.returnValue = '';
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   // 初回起動時にsessionStorageからカート復帰 & 認証セッション監視
   useEffect(() => {
@@ -1043,14 +1068,27 @@ function App() {
         onUpdateNote={handleUpdateNote}
         onRemoveItem={handleRemoveFromCart}
         onClearCart={handleClearCart}
-        onOpenDocumentModal={() => setIsDocumentOpen(true)}
+        onOpenDocumentModal={() => {
+          setDocumentModalItems(cartItems);
+          setDocumentModalType('ESTIMATE_REQUEST');
+          setIsDocumentManualEntry(false);
+          setIsDocumentOpen(true);
+        }}
+        onOpenDocumentModalWithItems={(items, defaultDocType = 'ESTIMATE_REQUEST', isManual = false) => {
+          setDocumentModalItems(items);
+          setDocumentModalType(defaultDocType);
+          setIsDocumentManualEntry(isManual);
+          setIsDocumentOpen(true);
+        }}
       />
 
       {/* 帳票PDF作成モーダル */}
       <DocumentModal
         isOpen={isDocumentOpen && isLoggedIn}
         onClose={() => setIsDocumentOpen(false)}
-        items={cartItems}
+        items={documentModalItems.length > 0 ? documentModalItems : cartItems}
+        defaultDocType={documentModalType}
+        isManualEntry={isDocumentManualEntry}
       />
 
       {/* 自社設定モーダル */}
