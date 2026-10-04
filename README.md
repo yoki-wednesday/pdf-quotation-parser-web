@@ -1,13 +1,33 @@
 # PDF Quotation Parser Web
 
-PDF形式の見積書をブラウザ上で解析し、明細データの確認・編集・Supabaseへの保存やCSVエクスポートを行うWebアプリケーションです。
+PDF形式の見積書をブラウザ上で安全に解析し、明細データの確認・編集・Supabaseへの一元保存、過去単価の横断検索、および自社見積依頼書・発注書PDFの自動生成を行うWebアプリケーションです。
+
+## 主な特徴・機能
+
+- **ゼロサーバーPDF解析 (セキュア設計)**:
+  - ブラウザ内（`pdf.js`）で解析を完結。元のPDFファイルを外部サーバーへ送信しません。
+  - ファイルのSHA-256ハッシュによる重複インポート防止と監査ログ記録。
+- **直感的な2画面プレビュー & グリッド編集**:
+  - 元PDFと抽出明細を突き合わせる2画面プレビュー。
+  - インラインでの行編集および小計・合計の自動再計算。
+- **柔軟な単価・明細検索**:
+  - カナ揺れ（全角・半角・濁点等）を吸収する柔軟な検索および複数キーワードAND検索。
+  - 明細のお気に入り登録・管理。
+- **帳票作成 & 「買い物かご」機能**:
+  - 過去の見積明細をピックアップして合算する「買い物かご」機能。
+  - 日本語フォント（IPAexゴシック）埋め込みによる自社見積依頼書・発注書PDFの自動生成（`pdf-lib`）。
+  - 履歴にない新規品目を手入力して即座に帳票出力できる新規見積・発注作成対応。
+  - 機密情報（価格等）をマスキング可能なAI連携用Markdownエクスポート。
+- **マスタ管理 & マルチテナント認証**:
+  - 自社情報設定、取引先商社マスタ、製品マスタ。
+  - Supabase AuthおよびRow Level Security (RLS) による安全なデータ分離。
 
 ## 技術スタック
 
 - **Frontend**: React 19, TypeScript, Vite
-- **PDF解析**: PDF.js (`pdfjs-dist`), pdf-lib
-- **Backend / Database**: Supabase
-- **Testing**: Vitest, React Testing Library
+- **PDF解析 / 生成**: PDF.js (`pdfjs-dist`), pdf-lib, `@pdf-lib/fontkit`
+- **Backend / Database**: Supabase (PostgreSQL, Auth, RLS)
+- **Lint / Testing**: Oxlint, Vitest, React Testing Library
 
 ---
 
@@ -57,6 +77,13 @@ VITE_SUPABASE_ANON_KEY=<your-anon-key>
 ### 5. アプリケーションの起動（開発サーバー）
 
 #### (A) サーバーを実行しているPC自身で利用する場合
+
+**方法1: デスクトップアプリ風にワンクリック起動（推奨）**
+
+プロジェクト直下の `start-app.bat` をダブルクリック（または右クリックしてショートカットをデスクトップに作成）します。
+Viteサーバーが自動起動し、Edge/Chromeがアドレスバー・タブ非表示のアプリモード（独立ウィンドウ）で開きます。
+
+**方法2: 通常のターミナル起動**
 ```bash
 npm run dev
 ```
